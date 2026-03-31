@@ -1,2 +1,2 @@
 # NEXTDROIDER.github.io
-*``bash https://nextdroider.github.io ``*
+*``https://nextdroider.github.io ``*
