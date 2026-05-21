@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GitHub File Explorer</title>
+<title>GitHub Apache Style Explorer</title>
 
 <style>
 body{
@@ -26,15 +26,25 @@ a:hover{
     text-decoration:underline;
 }
 
-.file{
-    margin:5px 0;
+.item{
+    margin:6px 0;
+}
+
+.folder a{
+    color:#00ff88;
+}
+
+.path{
+    margin-bottom:20px;
+    color:#aaa;
 }
 </style>
 </head>
 <body>
 
-<h1>📂 Файлы репозитория</h1>
+<h1>📂 Index of /</h1>
 
+<div class="path" id="path"></div>
 <div id="files">Загрузка...</div>
 
 <script>
@@ -49,61 +59,145 @@ const GITHUB_BRANCH = "main";
 
 // ======================
 
-async function getRepoFiles() {
+let allFiles = [];
+
+async function loadRepo() {
+
+    const res = await fetch(
+        `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/git/trees/${GITHUB_BRANCH}?recursive=1`
+    );
+
+    const data = await res.json();
+
+    allFiles = data.tree;
+
+    render();
+}
+
+function getCurrentPath() {
+
+    return decodeURIComponent(
+        location.hash.replace(/^#/, "")
+    );
+}
+
+function render() {
+
+    const currentPath = getCurrentPath();
+
+    document.getElementById("path").innerHTML =
+        `Текущая папка: /${currentPath}`;
 
     const filesDiv = document.getElementById("files");
 
-    try {
+    filesDiv.innerHTML = "";
 
-        const response = await fetch(
-            `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/git/trees/${GITHUB_BRANCH}?recursive=1`
-        );
+    const folders = new Set();
+    const files = [];
 
-        const data = await response.json();
+    allFiles.forEach(item => {
 
-        filesDiv.innerHTML = "";
+        if(item.path.startsWith(currentPath)) {
 
-        if(!data.tree) {
-            filesDiv.innerHTML = "❌ Репозиторий не найден";
-            return;
-        }
+            const rest = item.path.slice(currentPath.length);
 
-        data.tree.forEach(item => {
+            const clean = rest.replace(/^\/+/, "");
 
-            if(item.type === "blob") {
+            if(!clean) return;
 
-                const div = document.createElement("div");
+            const parts = clean.split("/");
 
-                div.className = "file";
+            const name = parts[0];
 
-                const isUserSite =
-                    GITHUB_REPO.toLowerCase() ===
-                    `${GITHUB_USER.toLowerCase()}.github.io`;
+            // Скрываем .файлы и .папки
+            if(name.startsWith(".")) return;
 
-                const fileUrl = isUserSite
-                    ? `https://${GITHUB_USER}.github.io/${item.path}`
-                    : `https://${GITHUB_USER}.github.io/${GITHUB_REPO}/${item.path}`;
+            if(parts.length > 1) {
 
-                div.innerHTML = `
-                    📄 <a href="${fileUrl}" target="_blank">
-                        ${item.path}
-                    </a>
-                `;
+                folders.add(name);
 
-                filesDiv.appendChild(div);
+            } else {
+
+                if(item.type === "blob") {
+                    files.push(name);
+                }
             }
+        }
+    });
 
-        });
+    // Назад
+    if(currentPath) {
 
-    } catch(err) {
+        const up = document.createElement("div");
 
-        filesDiv.innerHTML = "❌ Ошибка загрузки файлов";
+        up.className = "item folder";
 
-        console.error(err);
+        const parent =
+            currentPath.split("/").slice(0, -1).join("/");
+
+        up.innerHTML = `
+            📁 <a href="#${parent}">
+                ..
+            </a>
+        `;
+
+        filesDiv.appendChild(up);
     }
+
+    // Папки
+    [...folders].sort().forEach(folder => {
+
+        const div = document.createElement("div");
+
+        div.className = "item folder";
+
+        const nextPath =
+            currentPath
+            ? currentPath + "/" + folder
+            : folder;
+
+        div.innerHTML = `
+            📁 <a href="#${nextPath}">
+                ${folder}/
+            </a>
+        `;
+
+        filesDiv.appendChild(div);
+    });
+
+    // Файлы
+    files.sort().forEach(file => {
+
+        const div = document.createElement("div");
+
+        div.className = "item";
+
+        const fullPath =
+            currentPath
+            ? currentPath + "/" + file
+            : file;
+
+        const isUserSite =
+            GITHUB_REPO.toLowerCase() ===
+            `${GITHUB_USER.toLowerCase()}.github.io`;
+
+        const fileUrl = isUserSite
+            ? `https://${GITHUB_USER}.github.io/${fullPath}`
+            : `https://${GITHUB_USER}.github.io/${GITHUB_REPO}/${fullPath}`;
+
+        div.innerHTML = `
+            📄 <a href="${fileUrl}" target="_blank">
+                ${file}
+            </a>
+        `;
+
+        filesDiv.appendChild(div);
+    });
 }
 
-getRepoFiles();
+window.addEventListener("hashchange", render);
+
+loadRepo();
 
 </script>
 
