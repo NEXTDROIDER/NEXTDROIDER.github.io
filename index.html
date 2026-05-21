@@ -2,19 +2,14 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GitHub File Explorer</title>
 
 <style>
 body{
     background:#111;
     color:white;
-    font-family:Arial,sans-serif;
+    font-family:Arial;
     padding:20px;
-}
-
-h1{
-    color:#00ff88;
 }
 
 a{
@@ -23,7 +18,7 @@ a{
 }
 
 .file{
-    margin:4px 0;
+    margin:5px 0;
 }
 </style>
 </head>
@@ -33,39 +28,21 @@ a{
 
 <div id="files">Загрузка...</div>
 
-<script type="module">
+<script>
+async function loadConfig() {
 
-// ==========================
-// Загрузка .env
-// ==========================
-async function loadEnv() {
+    const res = await fetch("config.json");
 
-    const res = await fetch(".env");
-    const text = await res.text();
-
-    const env = {};
-
-    text.split("\n").forEach(line => {
-
-        line = line.trim();
-
-        if(!line || line.startsWith("#")) return;
-
-        const [key, ...value] = line.split("=");
-
-        env[key.trim()] = value.join("=").trim();
-    });
-
-    return env;
+    return await res.json();
 }
 
 async function getRepoFiles() {
 
-    const env = await loadEnv();
+    const config = await loadConfig();
 
-    const user = env.GITHUB_USER;
-    const repo = env.GITHUB_REPO;
-    const branch = env.GITHUB_BRANCH || "main";
+    const user = config.GITHUB_USER;
+    const repo = config.GITHUB_REPO;
+    const branch = config.GITHUB_BRANCH || "main";
 
     const filesDiv = document.getElementById("files");
 
@@ -79,38 +56,39 @@ async function getRepoFiles() {
 
         filesDiv.innerHTML = "";
 
+        if(!data.tree) {
+            filesDiv.innerHTML = "❌ Репозиторий не найден";
+            return;
+        }
+
         data.tree.forEach(item => {
 
             if(item.type === "blob") {
 
-                const file = document.createElement("div");
-                file.className = "file";
+                const div = document.createElement("div");
 
-                const url =
-                    `https://${user}.github.io/${repo}/${item.path}`;
+                div.className = "file";
 
-                file.innerHTML = `
-                    📄 <a href="${url}" target="_blank">
+                div.innerHTML = `
+                    📄 <a href="https://${user}.github.io/${repo}/${item.path}" target="_blank">
                         ${item.path}
                     </a>
                 `;
 
-                filesDiv.appendChild(file);
+                filesDiv.appendChild(div);
             }
 
         });
 
     } catch(err) {
 
-        filesDiv.innerHTML =
-            "❌ Ошибка загрузки файлов";
+        filesDiv.innerHTML = "❌ Ошибка";
 
         console.error(err);
     }
 }
 
 getRepoFiles();
-
 </script>
 
 </body>
