@@ -109,8 +109,11 @@ function render() {
 
             const name = parts[0];
 
-            // Скрываем .файлы и .папки
-            if(name.startsWith(".")) return;
+            // Скрываем .файлы, .папки и index.html
+             if(
+             name.startsWith(".") ||
+             name.toLowerCase() === "index.html"
+             ) return;
 
             if(parts.length > 1) {
 
