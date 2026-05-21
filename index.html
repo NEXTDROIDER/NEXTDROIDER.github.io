@@ -36,11 +36,11 @@ a{
 <script type="module">
 
 // ==========================
-// Загрузка config.json
+// Загрузка .env
 // ==========================
 async function loadEnv() {
 
-    const res = await fetch("config.json");
+    const res = await fetch(".env");
     const text = await res.text();
 
     const env = {};
