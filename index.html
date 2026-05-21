@@ -3,109 +3,114 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Проводник папок</title>
+<title>GitHub File Explorer</title>
 
 <style>
-    body {
-        font-family: Arial, sans-serif;
-        background: #111;
-        color: white;
-        padding: 20px;
-    }
+body{
+    background:#111;
+    color:white;
+    font-family:Arial,sans-serif;
+    padding:20px;
+}
 
-    h1 {
-        color: #00ff88;
-    }
+h1{
+    color:#00ff88;
+}
 
-    ul {
-        list-style: none;
-        padding-left: 20px;
-    }
+a{
+    color:#4da6ff;
+    text-decoration:none;
+}
 
-    li {
-        margin: 4px 0;
-    }
-
-    .folder {
-        color: #4da6ff;
-        cursor: pointer;
-        user-select: none;
-    }
-
-    .file {
-        color: #ddd;
-    }
-
-    .hidden {
-        display: none;
-    }
+.file{
+    margin:4px 0;
+}
 </style>
 </head>
 <body>
 
-<h1>📁 Просмотр файлов и подпапок</h1>
+<h1>📂 Файлы репозитория</h1>
 
-<input type="file" id="folderInput" webkitdirectory multiple>
+<div id="files">Загрузка...</div>
 
-<div id="output"></div>
+<script type="module">
 
-<script>
-const input = document.getElementById("folderInput");
-const output = document.getElementById("output");
+// ==========================
+// Загрузка config.json
+// ==========================
+async function loadEnv() {
 
-input.addEventListener("change", (e) => {
-    const files = [...e.target.files];
+    const res = await fetch("config.json");
+    const text = await res.text();
 
-    const tree = {};
+    const env = {};
 
-    files.forEach(file => {
-        const parts = file.webkitRelativePath.split("/");
+    text.split("\n").forEach(line => {
 
-        let current = tree;
+        line = line.trim();
 
-        parts.forEach((part, index) => {
-            if (index === parts.length - 1) {
-                current[part] = null;
-            } else {
-                current[part] = current[part] || {};
-                current = current[part];
-            }
-        });
+        if(!line || line.startsWith("#")) return;
+
+        const [key, ...value] = line.split("=");
+
+        env[key.trim()] = value.join("=").trim();
     });
 
-    output.innerHTML = "";
-    output.appendChild(renderTree(tree));
-});
-
-function renderTree(obj) {
-    const ul = document.createElement("ul");
-
-    for (const key in obj) {
-        const li = document.createElement("li");
-
-        if (obj[key] === null) {
-            li.innerHTML = "📄 <span class='file'>" + key + "</span>";
-        } else {
-            const folderName = document.createElement("span");
-            folderName.className = "folder";
-            folderName.textContent = "📁 " + key;
-
-            const childTree = renderTree(obj[key]);
-            childTree.classList.add("hidden");
-
-            folderName.onclick = () => {
-                childTree.classList.toggle("hidden");
-            };
-
-            li.appendChild(folderName);
-            li.appendChild(childTree);
-        }
-
-        ul.appendChild(li);
-    }
-
-    return ul;
+    return env;
 }
+
+async function getRepoFiles() {
+
+    const env = await loadEnv();
+
+    const user = env.GITHUB_USER;
+    const repo = env.GITHUB_REPO;
+    const branch = env.GITHUB_BRANCH || "main";
+
+    const filesDiv = document.getElementById("files");
+
+    try {
+
+        const response = await fetch(
+            `https://api.github.com/repos/${user}/${repo}/git/trees/${branch}?recursive=1`
+        );
+
+        const data = await response.json();
+
+        filesDiv.innerHTML = "";
+
+        data.tree.forEach(item => {
+
+            if(item.type === "blob") {
+
+                const file = document.createElement("div");
+                file.className = "file";
+
+                const url =
+                    `https://${user}.github.io/${repo}/${item.path}`;
+
+                file.innerHTML = `
+                    📄 <a href="${url}" target="_blank">
+                        ${item.path}
+                    </a>
+                `;
+
+                filesDiv.appendChild(file);
+            }
+
+        });
+
+    } catch(err) {
+
+        filesDiv.innerHTML =
+            "❌ Ошибка загрузки файлов";
+
+        console.error(err);
+    }
+}
+
+getRepoFiles();
+
 </script>
 
 </body>
